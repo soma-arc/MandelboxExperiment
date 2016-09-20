@@ -75,6 +75,16 @@ Sphere.prototype = {
     }
 }
 
+var Mandelbox =  function(){
+    this.boxScale = 1.;
+    this.minRadius = 0.5;
+    this.minRadius2 = this.minRadius * this.minRadius;
+    this.fixedRadius = 1.;
+    this.fixedRadius2 = this.fixedRadius * this.fixedRadius;
+    this.scale = 2;
+    this.offset = [0, 0, 0];
+}
+
 var Camera = function(target, fovDegree, eyeDist, up){
     this.target = target;
     this.prevTarget = target;
@@ -145,7 +155,7 @@ RenderCanvas.prototype = {
 };
 
 var Scene = function(){
-
+    this.mandelbox = new Mandelbox();
 }
 
 
@@ -257,6 +267,14 @@ function setupSchottkyProgram(scene, renderCanvas){
     uniLocation[n++] = gl.getUniformLocation(program, 'u_fov');
     uniLocation[n++] = gl.getUniformLocation(program, 'u_numIterations');
 
+    uniLocation[n++] = gl.getUniformLocation(program, 'u_boxScale');
+    uniLocation[n++] = gl.getUniformLocation(program, 'u_minRadius');
+    uniLocation[n++] = gl.getUniformLocation(program, 'u_minRadius2');
+    uniLocation[n++] = gl.getUniformLocation(program, 'u_fixedRadius');
+    uniLocation[n++] = gl.getUniformLocation(program, 'u_fixedRadius2');
+    uniLocation[n++] = gl.getUniformLocation(program, 'u_scale');
+    uniLocation[n++] = gl.getUniformLocation(program, 'u_offset');
+    
     var position = [-1.0, 1.0, 0.0,
                     1.0, 1.0, 0.0,
 	            -1.0, -1.0,  0.0,
@@ -299,6 +317,14 @@ function setupSchottkyProgram(scene, renderCanvas){
 	gl.uniform3fv(uniLocation[uniI++], renderCanvas.camera.target);
 	gl.uniform1f(uniLocation[uniI++], renderCanvas.camera.fovDegree);
 	gl.uniform1i(uniLocation[uniI++], renderCanvas.numIterations);
+
+	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.boxScale);
+	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.minRadius);
+	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.minRadius2);
+	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.fixedRadius);
+	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.fixedRadius2);
+	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.scale);
+	gl.uniform3fv(uniLocation[uniI++], g_scene.mandelbox.offset);
 
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 

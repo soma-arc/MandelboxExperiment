@@ -40,6 +40,7 @@
      uniform vec3 u_target;
      uniform float u_fov;
 
+
      // from Syntopia http://blog.hvidtfeldts.net/index.php/2015/01/path-tracing-3d-fractals/
      vec2 rand2n(vec2 co, float sampleIndex) {
 	 vec2 seed = co * (sampleIndex + 1.0);
@@ -302,6 +303,14 @@
      uniform vec3 u_target;
      uniform float u_fov;
      uniform int u_numIterations;
+
+     uniform float u_boxScale;
+     uniform float u_minRadius;
+     uniform float u_minRadius2;
+     uniform float u_fixedRadius;
+     uniform float u_fixedRadius2;
+     uniform float u_scale;
+     uniform vec3 u_offset;
      
      int g_mtl = -1;
      
@@ -319,30 +328,24 @@
      }
 
      float loopNum = 0.;
-     float orb = 1000.;
-     int colorIterations = 3;
-     float boxFold = 1.;
-     float mR2 = 0.5 * 0.5;
-     //	     float fR2 = sphereScale * mR2;
-     float fR2 = 1. * mR2;
-     float scale = 3.;
-     vec2  scaleFactor = vec2(scale, abs(scale)) / mR2;
-     vec3 offset = vec3(0);
      const int MAX_ITERATION = 30;
      float distMandelbox(vec3 pos){
 	 loopNum = 0.;
 	 vec4 p = vec4(pos.xyz, 1.0);
 	 vec4 p0 = p;  // p.w is knighty's DEfactor
-	 
+	 vec2 scaleFactor = vec2(u_scale, abs(u_scale));
 	 for (int i = 0; i < MAX_ITERATION; i++) {
 	     if(i > u_numIterations) break;
-             p.xyz = clamp(p.xyz, -boxFold, boxFold) * 2.0 * boxFold - p.xyz;  // box fold
+             p.xyz = clamp(p.xyz, -u_boxScale, u_boxScale) * 2.0 * u_boxScale - p.xyz;  // box fold
              float d = dot(p.xyz, p.xyz);
-             p *= clamp(max(fR2 / d, mR2), 0.0, 1.0);  // sphere fold
-             p = p * scaleFactor.xxxy + p0 + vec4(offset, 0.0);
+	     if(d < u_minRadius2){
+		 p *= u_fixedRadius2 / u_minRadius2;
+	     }else if(d < u_fixedRadius2){
+		 p *= u_fixedRadius2 / d;
+	     }
+             p = p * scaleFactor.xxxy + p0 + vec4(u_offset, 0.0);
 	     loopNum = float(i);
 	 }
-	 
 	 return length(p.xyz) / p.w;
      }
 
