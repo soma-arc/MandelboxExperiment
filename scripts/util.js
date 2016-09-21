@@ -80,6 +80,7 @@ function attachShader(gl, shaderId, program, shaderType){
     gl.compileShader(shader);
     if(gl.getShaderParameter(shader, gl.COMPILE_STATUS)){
         gl.attachShader(program, shader);
+	console.log(gl.getShaderInfoLog(shader));
     }else{
 	alert(gl.getShaderInfoLog(shader));
 	console.log(gl.getShaderInfoLog(shader));
@@ -92,6 +93,7 @@ function attachShaderFromString(gl, shaderStr, program, shaderType){
     gl.compileShader(shader);
     if(gl.getShaderParameter(shader, gl.COMPILE_STATUS)){
         gl.attachShader(program, shader);
+	console.log(gl.getShaderInfoLog(shader));
     }else{
 	alert(gl.getShaderInfoLog(shader));
 	console.log(gl.getShaderInfoLog(shader));

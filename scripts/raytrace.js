@@ -291,6 +291,36 @@ function calcPointOnScreen(point, camera,
      	    dot(pv, focalYAxis)];
 }
 
+function intersectMandelboxObjects(objectId, objectIndex, box,
+				   rayOrigin, rayDir, isect){
+    var v = diff(rayOrigin, [0, 0, 0]);
+    var b = dot(rayDir, v);
+    var c = dot(v, v) - box.fixedSphere.r * box.fixedSphere.r;
+    var d = b * b - c;
+    if(d >= 0){
+	var s = Math.sqrt(d);
+	var t = - b - s;
+	if(t <= RAYTRACE_EPSILON) t = -b + s;
+	if(RAYTRACE_EPSILON < t && t < isect[0]){
+
+	    c = dot(v, v) - box.minSphere.r * box.minSphere.r;
+	    d = b * b - c;
+	    if(d >= 0){
+		s = Math.sqrt(d);
+		t = - b - s;
+		if(t <= RAYTRACE_EPSILON) t = -b + s;
+		if(RAYTRACE_EPSILON < t && t < isect[0]){
+		    
+		    return [t, objectId, objectIndex, 1];
+		}
+	    }
+	    
+	    return [t, objectId, objectIndex, 2];
+	}
+    }
+    return isect;
+}
+
 function intersectSphere(objectId, objectIndex, componentId, center, radius,
 			 rayOrigin, rayDir, isect){
     var v = diff(rayOrigin, center);
@@ -336,6 +366,21 @@ function getIntersectedObject(eye, ray, objects){
     var result = [99999999, -1, -1];
     for(objectId in Object.keys(objects)){
 	objectId = parseInt(objectId);
+	if(objectId == ID_MANDELBOX){
+	    for(var i = 0 ; i < objects[objectId].length ; i++){
+		var box = objects[objectId][i];
+		result = intersectMandelboxObjects(objectId, i, box,
+						   eye, ray, result);
+		// result = intersectSphere(objectId, i, 1,
+		// 			 box.minSphere.getPosition(),
+		// 			 box.minSphere.r,
+		// 			 eye, ray, result);
+		// result = intersectSphere(objectId, i, 2,
+		// 			 box.fixedSphere.getPosition(),
+		// 			 box.fixedSphere.r,
+		// 			 eye, ray, result);
+	    }
+	}
     }
 
     return result.slice(1, 4);

@@ -68,21 +68,53 @@ Sphere.prototype = {
 	var d = distToMouse - r;
 	
 	//TODO: calculate tangent sphere
-	this.r = prevObject.r + d * 3;
+	this.r = prevObject.r + d * 0.01;
     },
     getComponentFromId(id){
 	return this;
     }
 }
 
+
 var Mandelbox =  function(){
-    this.boxScale = 1.;
+    this.boxScale = 1.; // box: componentId = 0
     this.minRadius = 0.5;
+    this.minSphere = new Sphere(0, 0, 0, this.minRadius); // min sphere: componentId = 1
     this.minRadius2 = this.minRadius * this.minRadius;
     this.fixedRadius = 1.;
+    this.fixedSphere = new Sphere(0, 0, 0, this.fixedRadius); // fixed sphere: componentId = 2;
     this.fixedRadius2 = this.fixedRadius * this.fixedRadius;
     this.scale = 2;
     this.offset = [0, 0, 0];
+}
+
+Mandelbox.prototype = {
+    getUniformArray: function(){
+	return [this.boxScale, this.minRadius, this.fixedRadius, this.scale];
+    },
+    update: function(){
+	this.minRadius = this.minSphere.r;
+	this.minRadius2 = this.minRadius * this.minRadius;
+	this.fixedRadius = this.fixedSphere.r;
+	this.fixedRadius2 = this.fixedRadius * this.fixedRadius;
+    },
+    clone: function(){
+	var box = new Mandelbox();
+	box.boxScale = this.boxScale;
+	box.minSphere = this.minSphere.clone();
+	box.fixedSphere = this.fixedSphere.clone();
+	box.scale = this.scale;
+	box.offset = this.offset.slice(0);
+	box.update();
+	return box;
+    },
+    getComponentFromId: function(id){
+	if(id == 1){
+	    return this.minSphere;
+	}else if(id == 2){
+	    return this.fixedSphere;
+	}
+    }
 }
 
 var Camera = function(target, fovDegree, eyeDist, up){
@@ -155,12 +187,20 @@ RenderCanvas.prototype = {
 };
 
 var Scene = function(){
-    this.mandelbox = new Mandelbox();
+    this.mandelboxes = [new Mandelbox()];
 }
 
 
+const ID_MANDELBOX = 0;
 Scene.prototype = {
-
+    getNumMandelboxes : function(){
+	return this.mandelboxes.length;
+    },
+    getObjects : function(){
+	var obj = {};
+	obj[ID_MANDELBOX] = this.mandelboxes;
+	return obj;
+    }
 }
 
 function addMouseListenersToCanvas(renderCanvas){
@@ -229,17 +269,20 @@ function addMouseListenersToCanvas(renderCanvas){
     }, true);
 
     [renderCanvas.switch,
-     renderCanvas.render] = setupSchottkyProgram(g_scene,
+     renderCanvas.render] = setupShaderProgram(g_scene,
 						 renderCanvas);
     renderCanvas.switch();
     renderCanvas.render(0);
 }
 
-function setupSchottkyProgram(scene, renderCanvas){
+function setupShaderProgram(scene, renderCanvas){
     var gl = renderCanvas.gl;
     var program = gl.createProgram();
-    
-    var shaderStr = renderCanvas.template.render();
+
+    var numMandelboxes = scene.getNumMandelboxes();
+    var shaderStr = renderCanvas.template.render({
+	numMandelboxes : numMandelboxes
+    });
     attachShaderFromString(gl,
 			   shaderStr,
 			   program,
@@ -274,6 +317,10 @@ function setupSchottkyProgram(scene, renderCanvas){
     uniLocation[n++] = gl.getUniformLocation(program, 'u_fixedRadius2');
     uniLocation[n++] = gl.getUniformLocation(program, 'u_scale');
     uniLocation[n++] = gl.getUniformLocation(program, 'u_offset');
+
+    for(var i = 0 ; i < numMandelboxes ; i++){
+	uniLocation[n++] = gl.getUniformLocation(program, 'u_mandelbox'+ i);
+    }
     
     var position = [-1.0, 1.0, 0.0,
                     1.0, 1.0, 0.0,
@@ -318,13 +365,16 @@ function setupSchottkyProgram(scene, renderCanvas){
 	gl.uniform1f(uniLocation[uniI++], renderCanvas.camera.fovDegree);
 	gl.uniform1i(uniLocation[uniI++], renderCanvas.numIterations);
 
-	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.boxScale);
-	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.minRadius);
-	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.minRadius2);
-	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.fixedRadius);
-	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.fixedRadius2);
-	gl.uniform1f(uniLocation[uniI++], g_scene.mandelbox.scale);
-	gl.uniform3fv(uniLocation[uniI++], g_scene.mandelbox.offset);
+	for(var i = 0 ; i < numMandelboxes ; i++){
+	    gl.uniform1f(uniLocation[uniI++], scene.mandelboxes[0].boxScale);
+	    gl.uniform1f(uniLocation[uniI++], scene.mandelboxes[0].minRadius);
+	    gl.uniform1f(uniLocation[uniI++], scene.mandelboxes[0].minRadius2);
+	    gl.uniform1f(uniLocation[uniI++], scene.mandelboxes[0].fixedRadius);
+	    gl.uniform1f(uniLocation[uniI++], scene.mandelboxes[0].fixedRadius2);
+	    gl.uniform1f(uniLocation[uniI++], scene.mandelboxes[0].scale);
+	    gl.uniform3fv(uniLocation[uniI++], scene.mandelboxes[0].offset);
+	    gl.uniform1fv(uniLocation[uniI++], scene.mandelboxes[0].getUniformArray());
+	}
 
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 
@@ -334,70 +384,110 @@ function setupSchottkyProgram(scene, renderCanvas){
     return [switchProgram, render];
 }
 
-function updateShaders(schottkyCanvas, orbitCanvas){
-    [schottkyCanvas.switch,
-     schottkyCanvas.render] = setupSchottkyProgram(g_scene, schottkyCanvas);
+function updateShaders(geometryCanvas, orbitCanvas){
+    [geometryCanvas.switch,
+     geometryCanvas.render] = setupShaderProgram(g_scene, geometryCanvas);
     [orbitCanvas.switch,
-     orbitCanvas.render] = setupSchottkyProgram(g_scene, orbitCanvas);
-    schottkyCanvas.switch();
+     orbitCanvas.render] = setupShaderProgram(g_scene, orbitCanvas);
+    geometryCanvas.switch();
     orbitCanvas.switch();
 
-    schottkyCanvas.render(0);
+    geometryCanvas.render(0);
     orbitCanvas.render(0);
 }
 
 window.addEventListener('load', function(event){
     g_scene = new Scene();
-    var schottkyCanvas = new RenderCanvas('canvas', 'geometryTemplate');
+    var geometryCanvas = new RenderCanvas('canvas', 'geometryTemplate');
     var orbitCanvas = new RenderCanvas('fractalCanvas', 'fractalTemplate');
 
-    schottkyCanvas.resizeCanvas(256, 256);
+    geometryCanvas.resizeCanvas(256, 256);
     orbitCanvas.resizeCanvas(256, 256);
     
-    addMouseListenersToCanvas(schottkyCanvas);
+    addMouseListenersToCanvas(geometryCanvas);
     addMouseListenersToCanvas(orbitCanvas);
     
     window.addEventListener('keyup', function(event){
-	schottkyCanvas.pressingKey = '';
-	if(schottkyCanvas.selectedAxis != -1){
-	    schottkyCanvas.selectedAxis = -1;
-	    schottkyCanvas.render(0);
+	geometryCanvas.pressingKey = '';
+	if(geometryCanvas.selectedAxis != -1){
+	    geometryCanvas.selectedAxis = -1;
+	    geometryCanvas.render(0);
 	}
-	schottkyCanvas.isRendering = false;
+	geometryCanvas.isRendering = false;
 	orbitCanvas.isRendering = false;
     });
 
-    schottkyCanvas.canvas.addEventListener('mousedown', function(event){
-	[px, py] = schottkyCanvas.calcPixel(event);
+    geometryCanvas.canvas.addEventListener('mousedown', function(event){
+	[px, py] = geometryCanvas.calcPixel(event);
 	if(event.button == 0){
+	    var objects = g_scene.getObjects();
+	    var [objectId,
+		 objectIndex,
+		 componentId] = getIntersectedObject(geometryCanvas.camera.position,
+						     calcRay(geometryCanvas.camera,
+							     geometryCanvas.canvas.width,
+							     geometryCanvas.canvas.height,
+							     [px, py]),
+						     objects);
+	    geometryCanvas.selectedObjectId = objectId;
+	    geometryCanvas.selectedObjectIndex = objectIndex;
+	    geometryCanvas.selectedComponentId = componentId;
+	    geometryCanvas.render(0);
+
+	    if(objectId == -1) return;
+	    var obj = objects[objectId][objectIndex];
+	    geometryCanvas.prevObject = obj.clone();
+	    geometryCanvas.axisVecOnScreen = calcAxisOnScreen(obj.getComponentFromId(componentId).getPosition(),
+							      geometryCanvas.camera,
+							      geometryCanvas.canvas.width,
+							      geometryCanvas.canvas.height);
 	}
     });
     
-    // Move Spheres on Schottky Canvas
-    schottkyCanvas.canvas.addEventListener('mousemove', function(event){
-	if(!schottkyCanvas.isMousePressing) return;
-	var groupId = schottkyCanvas.selectedObjectId;
-	var index = schottkyCanvas.selectedObjectIndex;
+    geometryCanvas.canvas.addEventListener('mousemove', function(event){
+	if(!geometryCanvas.isMousePressing) return;
+	var groupId = geometryCanvas.selectedObjectId;
+	var index = geometryCanvas.selectedObjectIndex;
+	var componentId = geometryCanvas.selectedComponentId;
+	if(event.button == 0){
+	    var operateObject = g_scene.getObjects()[groupId][index];
+
+	    if(operateObject == undefined) return;
+	    [mx, my] = geometryCanvas.calcPixel(event);
+	    var dx = mx - geometryCanvas.prevMousePos[0];
+	    var dy = my - geometryCanvas.prevMousePos[1];
+	    switch (geometryCanvas.pressingKey){
+	    case 's':
+		console.log(operateObject.getComponentFromId(componentId));
+		operateObject.getComponentFromId(componentId).setRadius(mx, my, dx, dy,
+									geometryCanvas.prevObject.getComponentFromId(componentId),
+									geometryCanvas);
+		operateObject.update();
+		geometryCanvas.isRendering = true;
+		orbitCanvas.isRendering = true;
+		break;
+	    }
+	}
     });
-    schottkyCanvas.canvas.addEventListener('mouseup', function(event){
+    geometryCanvas.canvas.addEventListener('mouseup', function(event){
 	orbitCanvas.isMousePressing = false;
 	orbitCanvas.isRendering = false;
     });
-    schottkyCanvas.canvas.addEventListener('dblclick', function(event){
+    geometryCanvas.canvas.addEventListener('dblclick', function(event){
 	event.preventDefault();
-	var groupId = schottkyCanvas.selectedObjectId;
-	var index = schottkyCanvas.selectedObjectIndex;
+	var groupId = geometryCanvas.selectedObjectId;
+	var index = geometryCanvas.selectedObjectIndex;
 
     });
     window.addEventListener('keydown', function(event){
-	schottkyCanvas.pressingKey = event.key;
+	geometryCanvas.pressingKey = event.key;
     });
     
     var startTime = new Date().getTime();
     (function(){
         var elapsedTime = new Date().getTime() - startTime;
-	if(schottkyCanvas.isRendering){
-	    schottkyCanvas.render(elapsedTime);
+	if(geometryCanvas.isRendering){
+	    geometryCanvas.render(elapsedTime);
 	}
 	if(orbitCanvas.isRendering){
 	    orbitCanvas.render(elapsedTime);

@@ -40,6 +40,10 @@
      uniform vec3 u_target;
      uniform float u_fov;
 
+     {% for n in range(0, numMandelboxes ) %}
+     // [boxScale, minRadius, fixedRadius, scale]
+     uniform float u_mandelbox{{ n }}[4];
+     {% endfor %}
 
      // from Syntopia http://blog.hvidtfeldts.net/index.php/2015/01/path-tracing-3d-fractals/
      vec2 rand2n(vec2 co, float sampleIndex) {
@@ -58,6 +62,9 @@
 
      const int MTL_DIFFUSE = 0;
      const int MTL_TRANSPARENT = 1;
+
+     const int ID_MANDELBOX = 0;
+     
      int g_mtl = MTL_DIFFUSE;
      int g_objId = -1;
      int g_objIndex = -1;
@@ -226,13 +233,29 @@
 	 float coeff = 1.0;
 	 for (int depth = 0 ; depth < MAX_TRACE_DEPTH ; depth++){
 	     vec4 result = vec4(99999.);
-	     
-	     result = intersectSphere(0, 0, 0, MTL_DIFFUSE,
-				      vec3(0), 1., 
+	   
+	     const vec3 zero = vec3(0);
+	     {% for n in range(0, numMandelboxes) %}
+	     result = intersectSphere(0, 0, 1, MTL_TRANSPARENT,
+				      zero, u_mandelbox{{ n }}[1],
 				      eye, ray, result);
+	     result = intersectSphere(0, 0, 2, MTL_TRANSPARENT,
+				      zero, u_mandelbox{{ n }}[2],
+				      eye, ray, result);
+	     {% endfor %}
 	     
 	     vec3 matColor = WHITE;
 
+	     
+	     if(g_objId == ID_MANDELBOX){
+		 if(g_objComponentId == 1){
+		     matColor = (u_selectedComponentId == 1) ? RED : LIGHT_BLUE;
+		 }else if(g_objComponentId == 2){
+		     matColor = (u_selectedComponentId == 2) ? RED : YELLOW;
+		 }
+	     }
+	     
+	     
   	     if(result.x != 99999.){
     		 vec3 intersection = eye + ray * result.x;
 		 vec3 normal = result.yzw;
