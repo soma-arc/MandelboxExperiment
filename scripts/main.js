@@ -41,24 +41,24 @@ Sphere.prototype = {
     },
     // dx and dy are distance between preveous mouse position and current mouse position.
     // Move this sphere along the selected axis.
-    move: function(dx, dy, axis, prevObject, schottkyCanvas){
-	var v = schottkyCanvas.axisVecOnScreen[axis];
+    move: function(dx, dy, axis, prevObject, geometryCanvas){
+	var v = geometryCanvas.axisVecOnScreen[axis];
 	var lengthOnAxis = v[0] * dx + v[1] * dy;
-	var p = calcCoordOnAxis(schottkyCanvas.camera,
-				schottkyCanvas.canvas.width,
-				schottkyCanvas.canvas.height,
+	var p = calcCoordOnAxis(geometryCanvas.camera,
+				geometryCanvas.canvas.width,
+				geometryCanvas.canvas.height,
 				axis, v, prevObject.getPosition(),
 				lengthOnAxis);
 	this.set(axis, p[axis]);
     },
-    setRadius: function(mx, my, dx, dy, prevObject, schottkyCanvas){
+    setRadius: function(mx, my, dx, dy, prevObject, geometryCanvas){
 	//We assume that prevObject is Sphere.
 	var spherePosOnScreen = calcPointOnScreen(prevObject.getPosition(),
-						  schottkyCanvas.camera,
-						  schottkyCanvas.canvas.width,
-						  schottkyCanvas.canvas.height);
-	var diffSphereAndPrevMouse = [spherePosOnScreen[0] - schottkyCanvas.prevMousePos[0],
-				      spherePosOnScreen[1] - schottkyCanvas.prevMousePos[1]];
+						  geometryCanvas.camera,
+						  geometryCanvas.canvas.width,
+						  geometryCanvas.canvas.height);
+	var diffSphereAndPrevMouse = [spherePosOnScreen[0] - geometryCanvas.prevMousePos[0],
+				      spherePosOnScreen[1] - geometryCanvas.prevMousePos[1]];
 	var r = Math.sqrt(diffSphereAndPrevMouse[0] * diffSphereAndPrevMouse[0] +
 			  diffSphereAndPrevMouse[1] * diffSphereAndPrevMouse[1]);
 	var diffSphereAndMouse = [spherePosOnScreen[0] - mx,
@@ -384,28 +384,28 @@ function setupShaderProgram(scene, renderCanvas){
     return [switchProgram, render];
 }
 
-function updateShaders(geometryCanvas, orbitCanvas){
+function updateShaders(geometryCanvas, fractalCanvas){
     [geometryCanvas.switch,
      geometryCanvas.render] = setupShaderProgram(g_scene, geometryCanvas);
-    [orbitCanvas.switch,
-     orbitCanvas.render] = setupShaderProgram(g_scene, orbitCanvas);
+    [fractalCanvas.switch,
+     fractalCanvas.render] = setupShaderProgram(g_scene, fractalCanvas);
     geometryCanvas.switch();
-    orbitCanvas.switch();
+    fractalCanvas.switch();
 
     geometryCanvas.render(0);
-    orbitCanvas.render(0);
+    fractalCanvas.render(0);
 }
 
 window.addEventListener('load', function(event){
     g_scene = new Scene();
     var geometryCanvas = new RenderCanvas('canvas', 'geometryTemplate');
-    var orbitCanvas = new RenderCanvas('fractalCanvas', 'fractalTemplate');
+    var fractalCanvas = new RenderCanvas('fractalCanvas', 'fractalTemplate');
 
     geometryCanvas.resizeCanvas(256, 256);
-    orbitCanvas.resizeCanvas(256, 256);
+    fractalCanvas.resizeCanvas(256, 256);
     
     addMouseListenersToCanvas(geometryCanvas);
-    addMouseListenersToCanvas(orbitCanvas);
+    addMouseListenersToCanvas(fractalCanvas);
     
     window.addEventListener('keyup', function(event){
 	geometryCanvas.pressingKey = '';
@@ -414,7 +414,7 @@ window.addEventListener('load', function(event){
 	    geometryCanvas.render(0);
 	}
 	geometryCanvas.isRendering = false;
-	orbitCanvas.isRendering = false;
+	fractalCanvas.isRendering = false;
     });
 
     geometryCanvas.canvas.addEventListener('mousedown', function(event){
@@ -464,14 +464,14 @@ window.addEventListener('load', function(event){
 									geometryCanvas);
 		operateObject.update();
 		geometryCanvas.isRendering = true;
-		orbitCanvas.isRendering = true;
+		fractalCanvas.isRendering = true;
 		break;
 	    }
 	}
     });
     geometryCanvas.canvas.addEventListener('mouseup', function(event){
-	orbitCanvas.isMousePressing = false;
-	orbitCanvas.isRendering = false;
+	fractalCanvas.isMousePressing = false;
+	fractalCanvas.isRendering = false;
     });
     geometryCanvas.canvas.addEventListener('dblclick', function(event){
 	event.preventDefault();
@@ -489,8 +489,8 @@ window.addEventListener('load', function(event){
 	if(geometryCanvas.isRendering){
 	    geometryCanvas.render(elapsedTime);
 	}
-	if(orbitCanvas.isRendering){
-	    orbitCanvas.render(elapsedTime);
+	if(fractalCanvas.isRendering){
+	    fractalCanvas.render(elapsedTime);
 	}
     	requestAnimationFrame(arguments.callee);
     })();
