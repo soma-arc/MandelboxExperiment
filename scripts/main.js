@@ -161,10 +161,14 @@ Mandelbox.prototype = {
 	return this.position;
     },
     getOrbit: function(pos, numIterations){
-	var p = pos;
-	var p0 = pos;
+	var p = pos.slice(0);
+	var p0 = pos.slice(0);
 	var orbit = [];
+	var orb = 1000;
 	for(var i = 0 ; i < numIterations ; i++){
+	    // p[0] = clamp(p[0], -this.boxScale, this.boxScale) * 2. - p[0];
+	    // p[1] = clamp(p[1], -this.boxScale, this.boxScale) * 2. - p[1];
+	    // p[2] = clamp(p[2], -this.boxScale, this.boxScale) * 2. - p[2];
 	    if (p[0] > this.boxScale) { p[0] = 2.0*this.boxScale-p[0]; }
 	    else if (p[0] < -this.boxScale) { p[0] = -2.0*this.boxScale-p[0]; }
 	    
@@ -182,7 +186,9 @@ Mandelbox.prototype = {
 	    }
 	    p = scale(p, this.scale);
 	    p = sum(sum(p, p0), this.offset);
-	    orbit.push(p);
+//	    if(i < 3)
+//		orb = Math.min(orb, d);
+	    orbit.push(p.slice(0));
 	}
 	return orbit;
     }
@@ -328,8 +334,8 @@ function addMouseListenersToCanvas(renderCanvas){
 					   renderCanvas.canvas.width,
 					   renderCanvas.canvas.height);
 	    renderCanvas.camera.target = sum(renderCanvas.camera.prevTarget,
-					     sum(scale(vec[0], -dx * 5),
-						 scale(vec[1], -dy * 5)));
+					     sum(scale(vec[0], -dx * 0.1),
+						 scale(vec[1], -dy * 0.1)));
 	    renderCanvas.camera.update();
 	    renderCanvas.isRendering = true;
 	}
@@ -550,11 +556,13 @@ window.addEventListener('load', function(event){
     });
     
     geometryCanvas.canvas.addEventListener('mousemove', function(event){
+	event.preventDefault();
 	if(!geometryCanvas.isMousePressing) return;
 	var groupId = geometryCanvas.selectedObjectId;
 	var index = geometryCanvas.selectedObjectIndex;
 	var componentId = geometryCanvas.selectedComponentId;
 	if(event.button == 0){
+	    if(groupId == -1) return;
 	    var operateObject = g_scene.getObjects()[groupId][index];
 
 	    if(operateObject == undefined) return;
@@ -621,6 +629,16 @@ window.addEventListener('load', function(event){
 		geometryCanvas.selectedAxis = 2;
 		geometryCanvas.render(0);
 	    }
+	    break;
+	case 'p':
+	    g_scene.mandelboxes[0].scale += 0.1;
+	    g_scene.mandelboxes[0].update();
+	    fractalCanvas.render(0);
+	    break;
+	case 'n':
+	    g_scene.mandelboxes[0].scale -= 0.1;
+	    g_scene.mandelboxes[0].update();
+	    fractalCanvas.render(0);
 	    break;
 	}
     });

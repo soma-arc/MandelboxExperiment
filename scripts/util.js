@@ -2,6 +2,10 @@ radians = function(degrees) {
     return degrees * Math.PI / 180;
 };
 
+function clamp(x, minVal, maxVal){
+    return Math.min(Math.max(x, minVal), maxVal);
+}
+
 function makeSphereFromPoints(p1, p2, p3, p4){
     var p = [p1, p2, p3, p4];
     var coefficient =[[], [], []];
