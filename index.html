@@ -45,6 +45,11 @@
      uniform float u_mandelbox{{ n }}[4];
      {% endfor %}
 
+     {% for n in range(0, numBaseSpheres) %}
+     uniform vec3 u_baseSphere{{ n }};
+     uniform vec3 u_orbit{{ n }}[{{ maxOrbitLevel }}];
+     {% endfor %}
+
      // from Syntopia http://blog.hvidtfeldts.net/index.php/2015/01/path-tracing-3d-fractals/
      vec2 rand2n(vec2 co, float sampleIndex) {
 	 vec2 seed = co * (sampleIndex + 1.0);
@@ -64,6 +69,8 @@
      const int MTL_TRANSPARENT = 1;
 
      const int ID_MANDELBOX = 0;
+     const int ID_BASE_SPHERE = 1;
+     const int ID_ORBIT = 1000;
      
      int g_mtl = MTL_DIFFUSE;
      int g_objId = -1;
@@ -345,6 +352,19 @@
 				      zero, u_mandelbox{{ n }}[2],
 				      eye, ray, result);
 	     {% endfor %}
+
+
+	     {% for n in range(0, numBaseSpheres) %}
+	     result = intersectSphere(ID_BASE_SPHERE, {{ n }}, 0, MTL_DIFFUSE,
+				      u_baseSphere{{ n }}, .2,
+				      eye, ray, result);
+	     {% for level in range(0, maxOrbitLevel) %}
+	     result = intersectSphere(ID_ORBIT, {{ n }}, 0, MTL_DIFFUSE,
+				      u_orbit{{ n }}[{{ level }}], .2,
+				      eye, ray, result);
+	     
+	     {% endfor %}
+	     {% endfor %}
 	     
 	     vec3 matColor = WHITE;
 
@@ -357,6 +377,8 @@
 		 }else if(g_objComponentId == 2){
 		     matColor = (u_selectedComponentId == 2) ? RED : YELLOW;
 		 }
+	     }else if(g_objId == ID_BASE_SPHERE){
+		 matColor = GREEN;
 	     }
 	     
 	     
@@ -443,10 +465,22 @@
      // [boxScale, minRadius, fixedRadius, scale]
      uniform float u_mandelbox{{ n }}[4];
      {% endfor %}
+     {% for n in range(0, numBaseSpheres) %}
+     uniform vec3 u_baseSphere{{ n }};
+     uniform vec3 u_orbit{{ n }}[{{ maxOrbitLevel }}];
+     {% endfor %}
      
      int g_mtl = -1;
-     int MTL_DIFFUSE;
-     int MTL_TRANSPARENT;
+
+     int g_objId = -1;
+     int g_objIndex = -1;
+     int g_objComponentId = -1;
+     bool g_isHit = false;
+
+     const float EPSILON = 0.01;
+     
+     const int MTL_DIFFUSE = 0;
+     const int MTL_TRANSPARENT = 1;
      
      // from Syntopia http://blog.hvidtfeldts.net/index.php/2015/01/path-tracing-3d-fractals/
      vec2 rand2n(vec2 co, float sampleIndex) {
@@ -455,6 +489,31 @@
 	 // implementation based on: lumina.sourceforge.net/Tutorials/Noise.html
 	 return vec2(fract(sin(dot(seed.xy ,vec2(12.9898,78.233))) * 43758.5453),
                      fract(cos(dot(seed.xy ,vec2(4.898,7.23))) * 23421.631));
+     }
+
+     vec4 intersectSphere(int objId, int objIndex, int objComponentId, int mtl,
+			  vec3 sphereCenter, float radius, 
+			  vec3 rayOrigin, vec3 rayDir, vec4 isect){
+	 g_isHit = false;
+	 vec3 v = rayOrigin - sphereCenter;
+	 float b = dot(rayDir, v);
+	 float c = dot(v, v) - radius * radius;
+	 float d = b * b - c;
+	 if(d >= 0.){
+             float s = sqrt(d);
+             float t = -b - s;
+             if(t <= EPSILON) t = -b + s;
+             if(EPSILON < t && t < isect.x){
+		 vec3 p = (rayOrigin + t * rayDir);
+		 g_objId = objId;
+		 g_objIndex = objIndex;
+		 g_objComponentId = objComponentId;
+		 g_mtl = mtl;
+		 g_isHit = true;
+		 return vec4(t, normalize(p - sphereCenter));
+             }
+	 }
+	 return isect;
      }
      
      vec3 sphereInvert(vec3 pos, vec3 spherePos, float sphereR, float sphereR2){
@@ -530,7 +589,6 @@
 
      const int MAX_MARCHING_LOOP = 800;
      const float NO_HIT = 99999.;
-     const float EPSILON = 0.01;
      vec4 march(const vec3 origin, const  vec3 ray,
 		const float threshold, vec4 isect){
 	 vec3 rayPos = origin;

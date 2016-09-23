@@ -159,6 +159,33 @@ Mandelbox.prototype = {
     },
     getPosition: function(){
 	return this.position;
+    },
+    getOrbit: function(pos, numIterations){
+	var p = pos;
+	var p0 = pos;
+	var orbit = [];
+	for(var i = 0 ; i < numIterations ; i++){
+	    if (p[0] > this.boxScale) { p[0] = 2.0*this.boxScale-p[0]; }
+	    else if (p[0] < -this.boxScale) { p[0] = -2.0*this.boxScale-p[0]; }
+	    
+	    if (p[1] > this.boxScale) { p[1] = 2.0*this.boxScale-p[1]; }
+	    else if (p[1] < -this.boxScale) { p[1] = -2.0*this.boxScale-p[1]; }
+	    
+	    if (p[2] > this.boxScale) { p[2] = 2.0*this.boxScale-p[2]; }
+	    else if (p[2] < -this.boxScale) { p[2] = -2.0*this.boxScale-p[2]; }
+
+	    var d = dot(p, p);
+	    if(d < this.minRadius2){
+		p = scale(p, this.fixedRadius2 / this.minRadius2);
+	    }else if(d < this.fixedRadius2){
+		p = scale(p, this.fixedRadius2 / d);
+	    }
+	    p = scale(p, this.scale);
+	    p = sum(sum(p, p0), this.offset);
+	    orbit.push(p);
+	}
+	console.log(orbit);
+	return orbit;
     }
 }
 
@@ -201,7 +228,7 @@ var RenderCanvas = function(canvasId, templateId){
     this.selectedObjectId = -1;
     this.selectedObjectIndex = -1;
     this.selectedComponentId = -1;
-    
+
     this.isRendering = false;
     this.isMousePressing = false;
     this.prevMousePos = [0, 0];
@@ -233,18 +260,35 @@ RenderCanvas.prototype = {
 
 var Scene = function(){
     this.mandelboxes = [new Mandelbox()];
+    this.baseSpheres = [new Sphere(4, 0, 0, 1)];
+    this.orbits = [];
+    this.maxOrbitLevel = 5;
+    for(var i = 0 ; i < this.baseSpheres.length ; i++){
+	var p = this.baseSpheres[i].getPosition();
+	var orb = Array.prototype.concat.apply([], this.mandelboxes[i].getOrbit(p, this.maxOrbitLevel))
+	this.orbits.push(orb);
+    }
 }
-
 
 const ID_MANDELBOX = 0;
 Scene.prototype = {
     getNumMandelboxes : function(){
 	return this.mandelboxes.length;
     },
+    getNumBaseSpheres : function(){
+	return this.baseSpheres.length;
+    },
     getObjects : function(){
 	var obj = {};
 	obj[ID_MANDELBOX] = this.mandelboxes;
 	return obj;
+    },
+    update : function(){
+	for(var i = 0 ; i < this.baseSpheres.length ; i++){
+	    var p = this.baseSpheres[i].getPosition();
+	    var orb = Array.prototype.concat.apply([], this.mandelboxes[i].getOrbit(p, this.maxOrbitLevel))
+	    this.orbits.push(orb);
+	}
     }
 }
 
@@ -325,8 +369,11 @@ function setupShaderProgram(scene, renderCanvas){
     var program = gl.createProgram();
 
     var numMandelboxes = scene.getNumMandelboxes();
+    var numBaseSpheres = scene.getNumBaseSpheres();
     var shaderStr = renderCanvas.template.render({
-	numMandelboxes : numMandelboxes
+	numMandelboxes : numMandelboxes,
+	numBaseSpheres : numBaseSpheres,
+	maxOrbitLevel : scene.maxOrbitLevel
     });
     attachShaderFromString(gl,
 			   shaderStr,
@@ -365,6 +412,11 @@ function setupShaderProgram(scene, renderCanvas){
 
     for(var i = 0 ; i < numMandelboxes ; i++){
 	uniLocation[n++] = gl.getUniformLocation(program, 'u_mandelbox'+ i);
+    }
+
+    for(var i = 0 ; i < numBaseSpheres ; i++){
+	uniLocation[n++] = gl.getUniformLocation(program, 'u_baseSphere'+ i);
+	uniLocation[n++] = gl.getUniformLocation(program, 'u_orbit'+ i);
     }
     
     var position = [-1.0, 1.0, 0.0,
@@ -419,6 +471,12 @@ function setupShaderProgram(scene, renderCanvas){
 	    gl.uniform1f(uniLocation[uniI++], scene.mandelboxes[0].scale);
 	    gl.uniform3fv(uniLocation[uniI++], scene.mandelboxes[0].offset);
 	    gl.uniform1fv(uniLocation[uniI++], scene.mandelboxes[0].getUniformArray());
+	}
+
+	for(var i = 0 ; i < numBaseSpheres ; i++){
+	    var p = scene.baseSpheres[i].getPosition();
+	    gl.uniform3fv(uniLocation[uniI++], p);
+	    gl.uniform3fv(uniLocation[uniI++], scene.orbits[i]);
 	}
 
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
