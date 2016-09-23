@@ -184,7 +184,6 @@ Mandelbox.prototype = {
 	    p = sum(sum(p, p0), this.offset);
 	    orbit.push(p);
 	}
-	console.log(orbit);
 	return orbit;
     }
 }
@@ -260,7 +259,7 @@ RenderCanvas.prototype = {
 
 var Scene = function(){
     this.mandelboxes = [new Mandelbox()];
-    this.baseSpheres = [new Sphere(4, 0, 0, 1)];
+    this.baseSpheres = [new Sphere(3.85, 0, 0, 1)];
     this.orbits = [];
     this.maxOrbitLevel = 5;
     for(var i = 0 ; i < this.baseSpheres.length ; i++){
@@ -271,6 +270,7 @@ var Scene = function(){
 }
 
 const ID_MANDELBOX = 0;
+const ID_BASE_SPHERE = 1;
 Scene.prototype = {
     getNumMandelboxes : function(){
 	return this.mandelboxes.length;
@@ -281,9 +281,11 @@ Scene.prototype = {
     getObjects : function(){
 	var obj = {};
 	obj[ID_MANDELBOX] = this.mandelboxes;
+	obj[ID_BASE_SPHERE] = this.baseSpheres;
 	return obj;
     },
     update : function(){
+	this.orbits = [];
 	for(var i = 0 ; i < this.baseSpheres.length ; i++){
 	    var p = this.baseSpheres[i].getPosition();
 	    var orb = Array.prototype.concat.apply([], this.mandelboxes[i].getOrbit(p, this.maxOrbitLevel))
@@ -560,6 +562,24 @@ window.addEventListener('load', function(event){
 	    var dx = mx - geometryCanvas.prevMousePos[0];
 	    var dy = my - geometryCanvas.prevMousePos[1];
 	    switch (geometryCanvas.pressingKey){
+	    case 'z':
+		operateObject.move(dx, dy, 0, geometryCanvas.prevObject, geometryCanvas);
+		g_scene.update();
+		geometryCanvas.isRendering = true;
+		fractalCanvas.isRendering = true;
+		break;
+	    case 'x':
+		operateObject.move(dx, dy, 1, geometryCanvas.prevObject, geometryCanvas);
+		g_scene.update();
+		geometryCanvas.isRendering = true;
+		fractalCanvas.isRendering = true;
+		break;
+	    case 'c':
+		operateObject.move(dx, dy, 2, geometryCanvas.prevObject, geometryCanvas);
+		g_scene.update();
+		geometryCanvas.isRendering = true;
+		fractalCanvas.isRendering = true;
+		break;
 	    case 's':
 		operateObject.getComponentFromId(componentId).setRadius(mx, my, dx, dy,
 									geometryCanvas.prevObject.getComponentFromId(componentId),
@@ -583,6 +603,26 @@ window.addEventListener('load', function(event){
     });
     window.addEventListener('keydown', function(event){
 	geometryCanvas.pressingKey = event.key;
+	switch(event.key){
+	case 'z':
+	    if(geometryCanvas.selectedAxis != 0){
+		geometryCanvas.selectedAxis = 0;
+		geometryCanvas.render(0);
+	    }
+	    break;
+	case 'x':
+	    if(geometryCanvas.selectedAxis != 1){
+		geometryCanvas.selectedAxis = 1;
+		geometryCanvas.render(0);
+	    }
+	    break;
+	case 'c':
+	    if(geometryCanvas.selectedAxis != 2){
+		geometryCanvas.selectedAxis = 2;
+		geometryCanvas.render(0);
+	    }
+	    break;
+	}
     });
     
     var startTime = new Date().getTime();

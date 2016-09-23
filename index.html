@@ -59,7 +59,6 @@
                      fract(cos(dot(seed.xy ,vec2(4.898,7.23))) * 23421.631));
      }
 
-     const int ID_AXIS_CYLINDER = 100;
      
      const float PI = 3.14159265359;
      const float PI_2 = PI/2.;
@@ -70,8 +69,9 @@
 
      const int ID_MANDELBOX = 0;
      const int ID_BASE_SPHERE = 1;
-     const int ID_ORBIT = 1000;
      
+     const int ID_ORBIT = 1000;
+     const int ID_AXIS_CYLINDER = 10001;
      int g_mtl = MTL_DIFFUSE;
      int g_objId = -1;
      int g_objIndex = -1;
@@ -308,12 +308,12 @@
 
      const float PI_4 = 12.566368;
      vec3 diffuseLighting(const vec3 p, const vec3 n, const vec3 diffuseColor,
-			  const vec3 lightPos, const vec3 lightPower){
+							    const vec3 lightPos, const vec3 lightPower){
   	 vec3 v = lightPos - p;
   	 float d = dot(n, normalize(v));
   	 float r = length(v);
   	 return (d > 0. 
-     // && lightVisibility(p, lightPos) == 1.
+		// && lightVisibility(p, lightPos) == 1.
          ) ?
     		(lightPower * (abs(d) / (PI_4 * r * r))) * diffuseColor
     	      : vec3(0.0);
@@ -337,7 +337,7 @@
 	 float coeff = 1.0;
 	 for (int depth = 0 ; depth < MAX_TRACE_DEPTH ; depth++){
 	     vec4 result = vec4(99999.);
-	   
+	     
 	     const vec3 zero = vec3(0);
 	     {% for n in range(0, numMandelboxes) %}
 	     float p{{ n }} = sqrt(u_mandelbox{{ n }}[0] * u_mandelbox{{ n }}[0] * u_mandelbox{{ n }}[0]);
@@ -358,6 +358,18 @@
 	     result = intersectSphere(ID_BASE_SPHERE, {{ n }}, 0, MTL_DIFFUSE,
 				      u_baseSphere{{ n }}, .2,
 				      eye, ray, result);
+	     if(u_selectedObjectId == ID_BASE_SPHERE &&
+		u_selectedObjectIndex == {{ n }}){
+		 result = intersectYZCylinder(ID_AXIS_CYLINDER, {{ n }}, 0, MTL_DIFFUSE,
+						      .05, u_baseSphere{{ n }},
+					      eye, ray, result);
+		 result = intersectXZCylinder(ID_AXIS_CYLINDER, {{ n }}, 1, MTL_DIFFUSE,
+						      .05, u_baseSphere{{ n }},
+					      eye, ray, result);
+		 result = intersectXYCylinder(ID_AXIS_CYLINDER, {{ n }}, 2, MTL_DIFFUSE,
+						      .05, u_baseSphere{{ n }},
+					      eye, ray, result);
+	     }
 	     {% for level in range(0, maxOrbitLevel) %}
 	     result = intersectSphere(ID_ORBIT, {{ n }}, 0, MTL_DIFFUSE,
 				      u_orbit{{ n }}[{{ level }}], .2,
@@ -371,14 +383,20 @@
 	     
 	     if(g_objId == ID_MANDELBOX){
 		 if(g_objComponentId == 0){
-		     matColor = (u_selectedComponentId == 0) ? RED : WHITE;
+		     matColor = (u_selectedObjectId == ID_MANDELBOX &&
+				 u_selectedComponentId == 0) ? RED : WHITE;
 		 }else if(g_objComponentId == 1){
-		     matColor = (u_selectedComponentId == 1) ? RED : LIGHT_BLUE;
+		     matColor = (u_selectedObjectId == ID_MANDELBOX &&
+				 u_selectedComponentId == 1) ? RED : LIGHT_BLUE;
 		 }else if(g_objComponentId == 2){
-		     matColor = (u_selectedComponentId == 2) ? RED : YELLOW;
+		     matColor = (u_selectedObjectId == ID_MANDELBOX &&
+				 u_selectedComponentId == 2) ? RED : YELLOW;
 		 }
 	     }else if(g_objId == ID_BASE_SPHERE){
-		 matColor = GREEN;
+		 matColor = (u_selectedObjectIndex == g_objIndex &&
+			     u_selectedObjectId == ID_BASE_SPHERE) ? RED : GREEN;
+	     }else if(g_objId == ID_AXIS_CYLINDER){
+		 matColor = (g_objComponentId == u_selectedAxis) ? RED : WHITE;
 	     }
 	     
 	     
@@ -481,6 +499,10 @@
      
      const int MTL_DIFFUSE = 0;
      const int MTL_TRANSPARENT = 1;
+
+     const int ID_MANDELBOX = 0;
+     const int ID_BASE_SPHERE = 1;
+     const int ID_ORBIT = 1000;
      
      // from Syntopia http://blog.hvidtfeldts.net/index.php/2015/01/path-tracing-3d-fractals/
      vec2 rand2n(vec2 co, float sampleIndex) {
@@ -574,7 +596,7 @@
      const vec3 LIGHTING_FACT = vec3(0.);
      const vec3 BLACK = vec3(0);
      vec3 diffuseLighting(const vec3 p, const vec3 n, const vec3 diffuseColor,
-			  const vec3 lightPos, const vec3 lightPower){
+							    const vec3 lightPos, const vec3 lightPower){
 	 vec3 v = lightPos - p;
 	 float dot = dot(n, normalize(v));
 	 float r = length(v);
@@ -589,7 +611,8 @@
 
      const int MAX_MARCHING_LOOP = 800;
      const float NO_HIT = 99999.;
-     vec4 march(const vec3 origin, const  vec3 ray,
+     vec4 march(int objId, int objIndex, int objComponentId, int mtl,
+		const vec3 origin, const  vec3 ray,
 		const float threshold, vec4 isect){
 	 vec3 rayPos = origin;
 	 float dist;
@@ -601,6 +624,11 @@
 	     if(dist < threshold) break;
 	 }
 	 if(dist < EPSILON && rayLength < isect.x){
+	     g_objId = objId;
+	     g_objIndex = objIndex;
+	     g_objComponentId = objComponentId;
+	     g_mtl = mtl;
+	     g_isHit = true;
 	     return vec4(rayLength);
 	 }else{
 	     return isect;
@@ -610,19 +638,46 @@
      const vec3 ambientFactor = vec3(0.1);
 
      const int MAX_TRACE_DEPTH = 5;
+     const vec3 WHITE = vec3(1);
+     const vec3 RED = vec3(1, 0, 0);
+     const vec3 GREEN = vec3(0, 1, 0);
+     const vec3 BLUE = vec3(0, 0, 1);
+     const vec3 YELLOW = vec3(1, 1, 0);
+     const vec3 PINK = vec3(1, 0, 1);
+     const vec3 LIGHT_BLUE = vec3(0, 1, 1);
      float transparency = 0.8;
      vec3 calcColor(vec3 eye, vec3 ray){
 	 vec3 l = BLACK;
 	 float coeff = 1.;
 	 for (int depth = 0 ; depth < MAX_TRACE_DEPTH ; depth++){
 	     vec4 result = vec4(NO_HIT);
-	     result = march(eye, ray, 0.01, result);
+	     result = march(ID_MANDELBOX, 0, 0, MTL_DIFFUSE,
+			    eye, ray, 0.01, result);
+
+	     {% for n in range(0, numBaseSpheres) %}
+	     result = intersectSphere(ID_BASE_SPHERE, {{ n }}, 0, MTL_DIFFUSE,
+				      u_baseSphere{{ n }}, .2,
+				      eye, ray, result);
+	     {% for level in range(0, maxOrbitLevel) %}
+	     result = intersectSphere(ID_ORBIT, {{ n }}, 0, MTL_DIFFUSE,
+				      u_orbit{{ n }}[{{ level }}], .2,
+				      eye, ray, result);
+	     {% endfor %}
+	     {% endfor %}
+	     
 //	     g_mtl = MTL_TRANSPARENT;
 	     if(result.x != NO_HIT){
-		 vec3 matColor = vec3(1);
+		 vec3 matColor = WHITE;
 		 vec3 intersection = eye + ray * result.x;
-		 vec3 normal = getNormal(intersection);
-		 matColor = hsv2rgb(vec3(0.1 , 1., 1.));
+		 vec3 normal;
+
+		 if(g_objId == ID_MANDELBOX){
+		     normal = getNormal(intersection);
+		     matColor = hsv2rgb(vec3(0.1 , 1., 1.));
+		 }else if(g_objId == ID_BASE_SPHERE){
+		     matColor = GREEN;
+		     
+		 }
 
 		 vec3 diffuse = diffuseLighting(intersection, normal, matColor, lightPos, lightPower);
 		 vec3 ambient = matColor * ambientFactor;

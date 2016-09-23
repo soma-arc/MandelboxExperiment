@@ -201,7 +201,7 @@ function calcCoordOnAxis(camera, width, height,
     var ray = calcRay(camera, width, height,
 		      [pos[0] + axisVec[0] * lengthOnAxis,
 		       pos[1] + axisVec[1] * lengthOnAxis]);
-    var r = 10;
+    var r = 0.05;
     var isect;
     if(axis == 0){
 	isect = intersectYZCylinder(0, 0, r, spherePos,
@@ -240,7 +240,8 @@ function calcAxisOnScreen(spherePos, camera,
     var sp = [dot(pv, focalXAxis),
      	      dot(pv, focalYAxis)];
 
-    ray = normalize3(diff(sum(spherePos, [50, 0, 0]), camera.position));
+    var dd = 1;
+    ray = normalize3(diff(sum(spherePos, [dd, 0, 0]), camera.position));
     [t, id, planeP, n] = intersectPlane(0, 0, planeCenter, v,
 					camera.position, ray,
 					[99999, 99999, 99999, 99999]);
@@ -248,7 +249,7 @@ function calcAxisOnScreen(spherePos, camera,
     var px = [dot(pv, focalXAxis),
      	      dot(pv, focalYAxis)];
 
-    ray = normalize3(diff(sum(spherePos, [0, 50, 0]), camera.position));
+    ray = normalize3(diff(sum(spherePos, [0, dd, 0]), camera.position));
     [t, id, planeP, n] = intersectPlane(0, 0, planeCenter, v,
 					camera.position, ray,
 					[99999, 99999, 99999, 99999]);
@@ -256,7 +257,7 @@ function calcAxisOnScreen(spherePos, camera,
     var py = [dot(pv, focalXAxis),
      	      dot(pv, focalYAxis)];
 
-    ray = normalize3(diff(sum(spherePos, [0, 0, 50]), camera.position));
+    ray = normalize3(diff(sum(spherePos, [0, 0, dd]), camera.position));
     [t, id, planeP, n] = intersectPlane(0, 0, planeCenter,
 					v, camera.position, ray,
 					[99999, 99999, 99999, 99999]);
@@ -468,6 +469,13 @@ function getIntersectedObject(eye, ray, objects){
 		// 			 box.fixedSphere.getPosition(),
 		// 			 box.fixedSphere.r,
 		// 			 eye, ray, result);
+	    }
+	}else if(objectId == ID_BASE_SPHERE){
+	    for(var i = 0 ; i < objects[objectId].length ; i++){
+		var sphere = objects[objectId][i];
+		result = intersectSphere(objectId, i, 0,
+					 sphere.getPosition(), sphere.r,
+					 eye, ray, result);
 	    }
 	}
     }
