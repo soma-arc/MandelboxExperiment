@@ -495,6 +495,8 @@
      int g_objComponentId = -1;
      bool g_isHit = false;
 
+     float g_orb = 1000.;
+     
      const float EPSILON = 0.01;
      
      const int MTL_DIFFUSE = 0;
@@ -545,13 +547,14 @@
      float loopNum = 0.;
      const int MAX_ITERATION = 30;
      float distMandelbox(vec3 pos){
+	 g_orb = 1000.;
 	 loopNum = 0.;
 	 vec4 p = vec4(pos.xyz, 1.0);
 	 vec4 p0 = p;  // p.w is knighty's DEfactor
 	 vec2 scaleFactor = vec2(u_scale, abs(u_scale));
 	 for (int i = 0; i < MAX_ITERATION; i++) {
 	     if(i > u_numIterations) break;
-             p.xyz = clamp(p.xyz, -u_boxScale, u_boxScale) * 2.0 * u_boxScale - p.xyz;  // box fold
+             p.xyz = clamp(p.xyz, -u_boxScale, u_boxScale) * 2.0 - p.xyz;  // box fold
              float d = dot(p.xyz, p.xyz);
 	     if(d < u_minRadius2){
 		 p *= u_fixedRadius2 / u_minRadius2;
@@ -560,6 +563,8 @@
 	     }
              p = p * scaleFactor.xxxy + p0 + vec4(u_offset, 0.0);
 	     loopNum = float(i);
+	     if(i < 3)
+		 g_orb = min(g_orb, d);
 	 }
 	 return length(p.xyz) / p.w;
      }
@@ -672,8 +677,8 @@
 		 vec3 normal;
 
 		 if(g_objId == ID_MANDELBOX){
+		     matColor = mix(hsv2rgb(vec3(0.1, 1., 1.)) , vec3(1.), g_orb);
 		     normal = getNormal(intersection);
-		     matColor = hsv2rgb(vec3(0.1 , 1., 1.));
 		 }else if(g_objId == ID_BASE_SPHERE){
 		     matColor = GREEN;
 		     
