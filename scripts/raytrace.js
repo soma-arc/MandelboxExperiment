@@ -318,7 +318,11 @@ function intersectMandelboxObjects(objectId, objectIndex, box,
 	    return [t, objectId, objectIndex, 2];
 	}
     }
-    return isect;
+    var p = Math.sqrt(box.boxScale * box.boxScale * box.boxScale);
+    return intersectBox(objectId, objectIndex, 0, 
+    			[-box.boxScale, -box.boxScale, -p],
+    			[box.boxScale, box.boxScale, p],
+    			rayOrigin, rayDir, isect);
 }
 
 function intersectSphere(objectId, objectIndex, componentId, center, radius,
@@ -336,6 +340,91 @@ function intersectSphere(objectId, objectIndex, componentId, center, radius,
 	    return [t, objectId, objectIndex, componentId];
 	}
     }
+    return isect;
+}
+
+function intersectXYRect (objId, objIndex, componentId,
+			  p1x, p1y, p2x, p2y,
+			  z, flip,
+			  rayOrigin, rayDir, isect){
+    var t = (z - rayOrigin[2]) / rayDir[2];
+    if(RAYTRACE_EPSILON < t && t < isect[0]){
+	var p = sum(rayOrigin, scale(rayDir, t));
+        if(p1x < p[0] && p[0] < p2x &&
+	   p1y < p[1] && p[1] < p2y ){
+	    return [t, objectId, objIndex, componentId];
+	    // if(flip){
+	    // 	return vec4(t, vec3(0, 0, -1));
+	    // }else{
+	    // 	return vec4(t, vec3(0, 0, 1));
+	    // }
+        }
+    }
+    return isect;
+}
+
+function intersectYZRect (objId, objIndex, componentId,
+			  p1y, p1z, p2y, p2z,
+			  x, flip,
+			  rayOrigin, rayDir, isect){
+    var t = (x - rayOrigin[0]) / rayDir[0];
+    if(RAYTRACE_EPSILON < t && t < isect[0]){
+	var p = sum(rayOrigin, scale(rayDir, t));
+        if(p1y < p[1] && p[1] < p2y &&
+	   p1z < p[2] && p[2] < p2z ){
+	    return [t, objectId, objIndex, componentId];
+            // if(flip){
+            //     return vec4(t, vec3(-1, 0, 0));
+            // }else{
+            //     return vec4(t, vec3(1, 0, 0));
+            // }
+        }
+    }
+    return isect;
+}
+
+function intersectXZRect (objId, objIndex, componentId,
+			  p1x, p1z, p2x, p2z,
+			  y, flip,
+			  rayOrigin, rayDir, isect){
+    var t = (y - rayOrigin[1]) / rayDir[1];
+    if(RAYTRACE_EPSILON < t && t < isect[0]){
+	var p = sum(rayOrigin, scale(rayDir, t));
+        if(p1x < p[0] && p[0] < p2x &&
+	   p1z < p[2] && p[2] < p2z ){
+	    return [t, objectId, objIndex, componentId];
+            // if(flip){
+            //     return vec4(t, vec3(-1, 0, 0));
+            // }else{
+            //     return vec4(t, vec3(1, 0, 0));
+            // }
+        }
+    }
+    return isect;
+}
+
+function intersectBox (objId, objIndex, objComponentId,
+		       min, max, rayOrigin, rayDir, isect){
+    isect = intersectXYRect(objId, objIndex, objComponentId,
+			    min[0], min[1], max[0], max[1],
+			    max[2], false, rayOrigin, rayDir, isect);
+    isect = intersectXYRect(objId, objIndex, objComponentId,
+			    min[0], min[1], max[0], max[1],
+			    min[2], true, rayOrigin, rayDir, isect);
+
+    isect = intersectXZRect(objId, objIndex, objComponentId,
+			    min[0], min[2], max[0], max[2],
+			    max[1], false, rayOrigin, rayDir, isect);
+    isect = intersectXZRect(objId, objIndex, objComponentId,
+			    min[0], min[2], max[0], max[2],
+			    min[1], true, rayOrigin, rayDir, isect);
+
+    isect = intersectYZRect(objId, objIndex, objComponentId,
+			    min[1], min[2], max[1], max[2],
+			    max[0], false, rayOrigin, rayDir, isect);
+    isect = intersectYZRect(objId, objIndex, objComponentId,
+			    min[1], min[2], max[1], max[2],
+			    min[0], true, rayOrigin, rayDir, isect);
     return isect;
 }
 
@@ -363,7 +452,7 @@ function intersectRect (objectId, objectIndex, componentId,
 }
 
 function getIntersectedObject(eye, ray, objects){
-    var result = [99999999, -1, -1];
+    var result = [99999999, -1, -1, -1];
     for(objectId in Object.keys(objects)){
 	objectId = parseInt(objectId);
 	if(objectId == ID_MANDELBOX){

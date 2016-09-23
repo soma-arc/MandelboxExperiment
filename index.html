@@ -174,6 +174,103 @@
 	 return isect;
      }
 
+     vec4 intersectXYRect (int objId, int objIndex, int objComponentId, int mtl,
+			   float p1x, float p1y, float p2x, float p2y,
+			   float z, bool flip,
+                           vec3 rayOrigin, vec3 rayDir, vec4 isect){
+         float t = (z - rayOrigin.z) / rayDir.z;
+         if(EPSILON < t && t < isect.x){
+             vec3 p = rayOrigin + t * rayDir;
+             if(p1x < p.x && p.x < p2x &&
+		p1y < p.y && p.y < p2y ){
+		 g_objId = objId;
+		 g_objIndex = objIndex;
+		 g_objComponentId = objComponentId;
+		 g_mtl = mtl;
+		 g_isHit = true;
+		 if(flip){
+		     return vec4(t, vec3(0, 0, -1));
+		 }else{
+		     return vec4(t, vec3(0, 0, 1));
+		 }
+             }
+         }
+         return isect;
+     }
+
+     vec4 intersectYZRect (int objId, int objIndex, int objComponentId, int mtl,
+			   float p1y, float p1z, float p2y, float p2z,
+			   float x, bool flip,
+                           vec3 rayOrigin, vec3 rayDir, vec4 isect){
+         float t = (x - rayOrigin.x) / rayDir.x;
+         if(EPSILON < t && t < isect.x){
+             vec3 p = rayOrigin + t * rayDir;
+             if(p1y < p.y && p.y < p2y &&
+		p1z < p.z && p.z < p2z ){
+		 g_objId = objId;
+		 g_objIndex = objIndex;
+		 g_objComponentId = objComponentId;
+		 g_mtl = mtl;
+		 g_isHit = true;
+                 if(flip){
+                     return vec4(t, vec3(-1, 0, 0));
+                 }else{
+                     return vec4(t, vec3(1, 0, 0));
+                 }
+             }
+         }
+         return isect;
+     }
+
+     vec4 intersectXZRect (int objId, int objIndex, int objComponentId, int mtl,
+			   float p1x, float p1z, float p2x, float p2z,
+			   float y, bool flip,
+                           vec3 rayOrigin, vec3 rayDir, vec4 isect){
+         float t = (y - rayOrigin.y) / rayDir.y;
+         if(EPSILON < t && t < isect.x){
+             vec3 p = rayOrigin + t * rayDir;
+             if(p1x < p.x && p.x < p2x &&
+		p1z < p.z && p.z < p2z ){
+		 g_objId = objId;
+		 g_objIndex = objIndex;
+		 g_objComponentId = objComponentId;
+		 g_mtl = mtl;
+		 g_isHit = true;
+                 if(flip){
+                     return vec4(t, vec3(-1, 0, 0));
+                 }else{
+                     return vec4(t, vec3(1, 0, 0));
+                 }
+             }
+         }
+         return isect;
+     }
+
+     vec4 intersectBox (int objId, int objIndex, int objComponentId, int mtl,
+			vec3 min, vec3 max, vec3 rayOrigin, vec3 rayDir, vec4 isect){
+	 isect = intersectXYRect(objId, objIndex, objComponentId, mtl,
+				 min.x, min.y, max.x, max.y,
+				 max.z, false, rayOrigin, rayDir, isect);
+	 isect = intersectXYRect(objId, objIndex, objComponentId, mtl,
+				 min.x, min.y, max.x, max.y,
+				 min.z, true, rayOrigin, rayDir, isect);
+
+	 isect = intersectXZRect(objId, objIndex, objComponentId, mtl,
+				 min.x, min.z, max.x, max.z,
+				 max.y, false, rayOrigin, rayDir, isect);
+	 isect = intersectXZRect(objId, objIndex, objComponentId, mtl,
+				 min.x, min.z, max.x, max.z,
+				 min.y, true, rayOrigin, rayDir, isect);
+
+	 isect = intersectYZRect(objId, objIndex, objComponentId, mtl,
+				 min.y, min.z, max.y, max.z,
+				 max.x, false, rayOrigin, rayDir, isect);
+	 isect = intersectYZRect(objId, objIndex, objComponentId, mtl,
+				 min.y, min.z, max.y, max.z,
+				 min.x, true, rayOrigin, rayDir, isect);
+	 return isect;
+     }
+
      // default plane is aligned the z-axis
      vec4 intersectRect (int objId, int objIndex, int objComponentId, int mtl,
 			 float distToOrigin, float size, mat3 rotation, mat3 invRotation,
@@ -236,10 +333,15 @@
 	   
 	     const vec3 zero = vec3(0);
 	     {% for n in range(0, numMandelboxes) %}
-	     result = intersectSphere(0, 0, 1, MTL_TRANSPARENT,
+	     float p{{ n }} = sqrt(u_mandelbox{{ n }}[0] * u_mandelbox{{ n }}[0] * u_mandelbox{{ n }}[0]);
+	     result = intersectBox(ID_MANDELBOX, {{ n }}, 0, MTL_TRANSPARENT,
+				   vec3(-u_mandelbox{{ n }}[0], -u_mandelbox{{ n }}[0], -p{{ n }}),
+				   vec3(u_mandelbox{{ n }}[0], u_mandelbox{{ n }}[0], p{{ n }}),
+				   eye, ray, result);
+	     result = intersectSphere(ID_MANDELBOX, {{ n }}, 1, MTL_TRANSPARENT,
 				      zero, u_mandelbox{{ n }}[1],
 				      eye, ray, result);
-	     result = intersectSphere(0, 0, 2, MTL_TRANSPARENT,
+	     result = intersectSphere(ID_MANDELBOX, {{ n }}, 2, MTL_TRANSPARENT,
 				      zero, u_mandelbox{{ n }}[2],
 				      eye, ray, result);
 	     {% endfor %}
@@ -248,7 +350,9 @@
 
 	     
 	     if(g_objId == ID_MANDELBOX){
-		 if(g_objComponentId == 1){
+		 if(g_objComponentId == 0){
+		     matColor = (u_selectedComponentId == 0) ? RED : WHITE;
+		 }else if(g_objComponentId == 1){
 		     matColor = (u_selectedComponentId == 1) ? RED : LIGHT_BLUE;
 		 }else if(g_objComponentId == 2){
 		     matColor = (u_selectedComponentId == 2) ? RED : YELLOW;
@@ -264,7 +368,7 @@
 		 if(g_mtl == MTL_TRANSPARENT){
 		     coeff *= transparency;
 		     l += (diffuse + ambient) * coeff;
-		     eye = intersection + ray * 0.01;
+		     eye = intersection + ray * 0.0001;
 		     continue;
 		 }else{
 		     l += (diffuse + ambient) * coeff;
@@ -334,8 +438,15 @@
      uniform float u_fixedRadius2;
      uniform float u_scale;
      uniform vec3 u_offset;
+
+     {% for n in range(0, numMandelboxes ) %}
+     // [boxScale, minRadius, fixedRadius, scale]
+     uniform float u_mandelbox{{ n }}[4];
+     {% endfor %}
      
      int g_mtl = -1;
+     int MTL_DIFFUSE;
+     int MTL_TRANSPARENT;
      
      // from Syntopia http://blog.hvidtfeldts.net/index.php/2015/01/path-tracing-3d-fractals/
      vec2 rand2n(vec2 co, float sampleIndex) {
@@ -439,22 +550,34 @@
      }
 
      const vec3 ambientFactor = vec3(0.1);
+
+     const int MAX_TRACE_DEPTH = 5;
+     float transparency = 0.8;
      vec3 calcColor(vec3 eye, vec3 ray){
 	 vec3 l = BLACK;
 	 float coeff = 1.;
-	 vec4 result = vec4(NO_HIT);
-	 result = march(eye, ray, 0.01, result);
-	 
-	 if(result.x != NO_HIT){
-	     vec3 matColor = vec3(1);
-	     vec3 normal;
-	     vec3 intersection = eye + ray * result.x;
-	     normal = getNormal(intersection);
-	     matColor = hsv2rgb(vec3(0.1 , 1., 1.));
+	 for (int depth = 0 ; depth < MAX_TRACE_DEPTH ; depth++){
+	     vec4 result = vec4(NO_HIT);
+	     result = march(eye, ray, 0.01, result);
+//	     g_mtl = MTL_TRANSPARENT;
+	     if(result.x != NO_HIT){
+		 vec3 matColor = vec3(1);
+		 vec3 intersection = eye + ray * result.x;
+		 vec3 normal = getNormal(intersection);
+		 matColor = hsv2rgb(vec3(0.1 , 1., 1.));
 
-	     l += diffuseLighting(intersection, normal, matColor, lightPos, lightPower);
-	     //	     l += diffuseLighting(intersection, normal, matColor, lightPos2, lightPower);
-	     l += matColor * ambientFactor;
+		 vec3 diffuse = diffuseLighting(intersection, normal, matColor, lightPos, lightPower);
+		 vec3 ambient = matColor * ambientFactor;
+		 if(g_mtl == MTL_TRANSPARENT){
+		     coeff *= transparency;
+		     l += (diffuse + ambient) * coeff;
+		     eye = intersection + ray * 0.0001;
+		     continue;
+		 }else{
+		     l += (diffuse + ambient) * coeff;
+		 }
+	     }
+	     break;
 	 }
 	 return l;
      }

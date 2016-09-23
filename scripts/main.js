@@ -75,9 +75,48 @@ Sphere.prototype = {
     }
 }
 
+// position [x, y, z] is center of the cube
+// scale is distance between center and each side.
+var Cube = function(x, y, z, scale){
+    this.x = x;
+    this.y = y;
+    this.z = x;
+    this.scale = scale;
+}
+
+Cube.prototype = {
+    getPosition: function(){
+	return [this.x, this.y, this.z];
+    },
+    clone: function(){
+	return new Cube(this.x, this.y, this.z, this.scale);
+    },
+    setRadius: function(mx, my, dx, dy, prevObject, geometryCanvas){
+	//We assume that prevObject is Sphere.
+	var spherePosOnScreen = calcPointOnScreen(prevObject.getPosition(),
+						  geometryCanvas.camera,
+						  geometryCanvas.canvas.width,
+						  geometryCanvas.canvas.height);
+	var diffSphereAndPrevMouse = [spherePosOnScreen[0] - geometryCanvas.prevMousePos[0],
+				      spherePosOnScreen[1] - geometryCanvas.prevMousePos[1]];
+	var r = Math.sqrt(diffSphereAndPrevMouse[0] * diffSphereAndPrevMouse[0] +
+			  diffSphereAndPrevMouse[1] * diffSphereAndPrevMouse[1]);
+	var diffSphereAndMouse = [spherePosOnScreen[0] - mx,
+				  spherePosOnScreen[1] - my];
+	var distToMouse = Math.sqrt(diffSphereAndMouse[0] * diffSphereAndMouse[0] +
+				    diffSphereAndMouse[1] * diffSphereAndMouse[1]);
+	var d = distToMouse - r;
+	
+	//TODO: calculate tangent sphere
+	this.scale = prevObject.scale + d * 0.01;
+    }
+}
+
 
 var Mandelbox =  function(){
+    this.position = [0, 0, 0];
     this.boxScale = 1.; // box: componentId = 0
+    this.box = new Cube(0, 0, 0, this.boxScale);
     this.minRadius = 0.5;
     this.minSphere = new Sphere(0, 0, 0, this.minRadius); // min sphere: componentId = 1
     this.minRadius2 = this.minRadius * this.minRadius;
@@ -93,27 +132,33 @@ Mandelbox.prototype = {
 	return [this.boxScale, this.minRadius, this.fixedRadius, this.scale];
     },
     update: function(){
+	this.boxScale = this.box.scale;
 	this.minRadius = this.minSphere.r;
 	this.minRadius2 = this.minRadius * this.minRadius;
 	this.fixedRadius = this.fixedSphere.r;
 	this.fixedRadius2 = this.fixedRadius * this.fixedRadius;
     },
     clone: function(){
-	var box = new Mandelbox();
-	box.boxScale = this.boxScale;
-	box.minSphere = this.minSphere.clone();
-	box.fixedSphere = this.fixedSphere.clone();
-	box.scale = this.scale;
-	box.offset = this.offset.slice(0);
-	box.update();
-	return box;
+	var mandelbox = new Mandelbox();
+	mandelbox.box = this.box.clone();
+	mandelbox.minSphere = this.minSphere.clone();
+	mandelbox.fixedSphere = this.fixedSphere.clone();
+	mandelbox.scale = this.scale;
+	mandelbox.offset = this.offset.slice(0);
+	mandelbox.update();
+	return mandelbox;
     },
     getComponentFromId: function(id){
-	if(id == 1){
+	if(id == 0){
+	    return this.box;
+	}else if(id == 1){
 	    return this.minSphere;
 	}else if(id == 2){
 	    return this.fixedSphere;
 	}
+    },
+    getPosition: function(){
+	return this.position;
     }
 }
 
@@ -458,7 +503,6 @@ window.addEventListener('load', function(event){
 	    var dy = my - geometryCanvas.prevMousePos[1];
 	    switch (geometryCanvas.pressingKey){
 	    case 's':
-		console.log(operateObject.getComponentFromId(componentId));
 		operateObject.getComponentFromId(componentId).setRadius(mx, my, dx, dy,
 									geometryCanvas.prevObject.getComponentFromId(componentId),
 									geometryCanvas);
