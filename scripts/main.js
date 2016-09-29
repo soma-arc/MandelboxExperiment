@@ -123,13 +123,14 @@ var Mandelbox =  function(){
     this.fixedRadius = 1.;
     this.fixedSphere = new Sphere(0, 0, 0, this.fixedRadius); // fixed sphere: componentId = 2;
     this.fixedRadius2 = this.fixedRadius * this.fixedRadius;
+    this.inversed = sphereInvert(this.minSphere, this.fixedSphere);
     this.scale = 2;
     this.offset = [0, 0, 0];
 }
 
 Mandelbox.prototype = {
     getUniformArray: function(){
-	return [this.boxScale, this.minRadius, this.fixedRadius, this.scale];
+	return [this.boxScale, this.minRadius, this.fixedRadius, this.scale, this.inversed.r];
     },
     update: function(){
 	this.boxScale = this.box.scale;
@@ -137,6 +138,7 @@ Mandelbox.prototype = {
 	this.minRadius2 = this.minRadius * this.minRadius;
 	this.fixedRadius = this.fixedSphere.r;
 	this.fixedRadius2 = this.fixedRadius * this.fixedRadius;
+	this.inversed = sphereInvert(this.minSphere, this.fixedSphere);
     },
     clone: function(){
 	var mandelbox = new Mandelbox();
@@ -265,7 +267,7 @@ RenderCanvas.prototype = {
 
 var Scene = function(){
     this.mandelboxes = [new Mandelbox()];
-    this.baseSpheres = [new Sphere(3.85, 0, 0, 1)];
+    this.baseSpheres = [];
     this.orbits = [];
     this.maxOrbitLevel = 5;
     for(var i = 0 ; i < this.baseSpheres.length ; i++){
@@ -372,6 +374,8 @@ function addMouseListenersToCanvas(renderCanvas){
     renderCanvas.render(0);
 }
 
+var g_distFunc = 0;
+
 function setupShaderProgram(scene, renderCanvas){
     var gl = renderCanvas.gl;
     var program = gl.createProgram();
@@ -426,7 +430,7 @@ function setupShaderProgram(scene, renderCanvas){
 	uniLocation[n++] = gl.getUniformLocation(program, 'u_baseSphere'+ i);
 	uniLocation[n++] = gl.getUniformLocation(program, 'u_orbit'+ i);
     }
-    
+    uniLocation[n++] = gl.getUniformLocation(program, 'u_distFunc');
     var position = [-1.0, 1.0, 0.0,
                     1.0, 1.0, 0.0,
 	            -1.0, -1.0,  0.0,
@@ -487,6 +491,8 @@ function setupShaderProgram(scene, renderCanvas){
 	    gl.uniform3fv(uniLocation[uniI++], scene.orbits[i]);
 	}
 
+	gl.uniform1i(uniLocation[uniI++], g_distFunc);
+
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 
 	gl.flush();
@@ -513,7 +519,7 @@ window.addEventListener('load', function(event){
     var fractalCanvas = new RenderCanvas('fractalCanvas', 'fractalTemplate');
 
     geometryCanvas.resizeCanvas(256, 256);
-    fractalCanvas.resizeCanvas(256, 256);
+    fractalCanvas.resizeCanvas(512, 512);
     
     addMouseListenersToCanvas(geometryCanvas);
     addMouseListenersToCanvas(fractalCanvas);
@@ -640,6 +646,18 @@ window.addEventListener('load', function(event){
 	    g_scene.mandelboxes[0].update();
 	    fractalCanvas.render(0);
 	    break;
+	case '1':
+	    g_distFunc = 0;
+	    fractalCanvas.render(0);
+	    break;
+	case '2':
+	    g_distFunc = 1;
+	    fractalCanvas.render(0);
+	    break;
+	case '3':
+	    g_distFunc = 2;
+	    fractalCanvas.render(0);
+
 	}
     });
     
